@@ -1,0 +1,84 @@
+# Exercise 1: accessing a relational database
+
+# Install and load the `dplyr`, `DBI`, and `RSQLite` packages for accessing
+# databases
+# Install and load packages
+install.packages(c("dplyr", "DBI", "RSQLite"))
+library(dplyr)
+library(DBI)
+library(RSQLite)
+
+# Create a connection to the `Chinook_Sqlite.sqlite` file in the `data` folder
+# Be sure to set your working directory!
+# Create connection to database
+con <- dbConnect(RSQLite::SQLite(), "data/Chinook_Sqlite.sqlite")
+
+# Use the `dbListTables()` function (passing in the connection) to get a list
+# of tables in the database.
+# List tables in database
+dbListTables(con)
+
+# Use the `tbl()`function to create a reference to the table of music genres.
+# Print out the the table to confirm that you've accessed it.
+# Create reference to genre table and print it
+genres <- tbl(con, "Genre")
+genres
+
+# Try to use `View()` to see the contents of the table. What happened?
+# Attempt to view genre table
+View(genres) # Error: cannot coerce class ‘c("tbl_SQLiteConnection", "tbl_dbi", "tbl_sql", "tbl_lazy", "tbl")’ to a data.frame
+
+# Use the `collect()` function to actually load the genre table into memory
+# as a data frame. View that data frame.
+# Load genre table into memory as data frame and view it
+genres_df <- collect(genres)
+View(genres_df)
+
+# Use dplyr's `count()` function to see how many rows are in the genre table
+# Count rows in genre table
+genres %>% count()
+
+
+# Use the `tbl()` function to create a reference the table with track data.
+# Print out the the table to confirm that you've accessed it.
+# Create reference to track table and print it
+tracks <- tbl(con, "Track")
+tracks
+
+# Use dplyr functions to query for a list of artists in descending order by
+# popularity in the database (e.g., the artist with the most tracks at the top)
+# - Start by filting for rows that have an artist listed (use `is.na()`), then
+#   group rows by the artist and count them. Finally, arrange the results.
+# - Use pipes to do this all as one statement without collecting the data into
+#   memory!
+# Query for artists in descending order by popularity
+tracks %>%
+  filter(!is.na(Composer)) %>%
+  group_by(Composer) %>%
+  count() %>%
+  arrange(desc(n))
+
+# Use dplyr functions to query for the most popular _genre_ in the library.
+# You will need to count the number of occurrences of each genre, and join the
+# two tables together in order to also access the genre name.
+# Collect the resulting data into memory in order to access the specific row of
+# interest
+# Query for most popular genre in library
+genre_counts <- tracks %>%
+  group_by(GenreId) %>%
+  count() %>%
+  arrange(desc(n))
+
+# Bonus: Query for a list of the most popular artist for each genre in the
+# library (a "representative" artist for each).
+# Consider using multiple grouping operations. Note that you can only filter
+# for a `max()` value if you've collected the data into memory.
+most_popular_genre <- genres %>%
+  inner_join(genre_counts, by = c("GenreId" = "GenreId")) %>%
+  arrange(desc(n)) %>%
+  slice(1) %>%
+  select(Name)
+
+# Remember to disconnect from the database once you are done with it!
+# Disconnect from database
+dbDisconnect(con)
